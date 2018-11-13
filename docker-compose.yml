@@ -1,0 +1,17 @@
+############### Complete Home Control Compose ###############
+
+version: '2'
+services:
+
+########## Web Server/Reverse Proxy ##########
+
+##### NGINX - Reverse Proxy
+
+##### PHP - PHP Service
+
+########## Smart Home Services ##########
+
+##### Home Assistant - Smart Home Control System
+
+##### Homebridge - Homekit Bridge
+
