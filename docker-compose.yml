@@ -1,17 +1,93 @@
 ############### Complete Home Control Compose ###############
 
-version: '2'
+version: '3.7'
 services:
 
 ########## Web Server/Reverse Proxy ##########
 
 ##### NGINX - Reverse Proxy
 
+ nginx:
+  container_name: nginx
+  image: tobi312/rpi-nginx
+  restart: always
+  ports:
+   - 80:80
+   - 443:443
+  environment:
+   - TZ=${TZ}
+   - PGID=${PGID}
+   - PUID=${PUID}
+  links:
+   - php
+  volumes:
+   - $HOME/docker/nginx/config:/etc/nginx/conf.d:ro
+   - $HOME/docker/nginx/html:/var/www/html
+   - /etc/letsencrypt:/etc/letsencrypt
+
 ##### PHP - PHP Service
+
+ php:
+  container_name: php
+  image: tobi312/rpi-php
+  restart: always
+  ports:
+   - 9000:9000
+  environment:
+   - TZ=${TZ}
+   - PGID=${PGID}
+   - PUID=${PUID}
+   - PHP_ERRORS=1
+   - PHP_UPLOAD_MAX_FILESIZE=250
+  volumes:
+   - $HOME/docker/nginx/html:/var/www/html
+
+########## Frontend ##########
+
+##### Portainer - Container Management
+
+ portainer:
+   container_name: portainer
+   image: portainer/portainer
+   restart: always
+   ports:
+    - 9001:9000
+   command: -H unix:///var/run/docker.sock
+   volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - $HOME/docker/portainer:/config
 
 ########## Smart Home Services ##########
 
 ##### Home Assistant - Smart Home Control System
 
+ hass:
+  container_name: hass
+  image: homeassistant/raspberrypi3-homeassistant
+  restart: always
+  ports:
+   - 8123:8123
+  network_mode: host
+  privileged: true
+  environment:
+   - TZ=${TZ}
+   - PGID=${PGID}
+   - PUID=${PUID}
+  devices:
+   - "/dev/ttyUSB0:/dev/ttyUSB0"
+  volumes:
+   - $HOME/docker/hass:/config
+
 ##### Homebridge - Homekit Bridge
 
+ homebridge:
+  container_name: homebridge
+  image: oznu/homebridge:raspberry-pi
+  restart: always
+  network_mode: host
+  environment:
+   - TZ=${TZ}
+   - PGID=${PGID}
+   - PUID=${PUID}
+  volumes:
+   - $HOME/docker/homebridgey:/config
