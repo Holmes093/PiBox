@@ -90,4 +90,4 @@ services:
    - PGID=${PGID}
    - PUID=${PUID}
   volumes:
-   - $HOME/docker/homebridgey:/config
+   - $HOME/docker/homebridge:/config
