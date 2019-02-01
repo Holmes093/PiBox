@@ -42,6 +42,29 @@ services:
   volumes:
    - $HOME/docker/nginx/html:/var/www/html
 
+##### PiHole - Ad-Blocker
+
+ pihole:
+    container_name: pihole
+    image: pihole/pihole
+    restart: always
+    cap_add:
+     - NET_ADMIN
+    dns:
+     - 127.0.0.1
+     - 8.8.8.8
+    ports:
+      - 53:53/tcp
+      - 53:53/udp
+      - 8484:80/tcp
+    environment:
+      - ServerIP=${HOST_IP}
+      - PGID=${PGID}
+      - PUID=${PUID}
+    volumes:
+      - "$HOME/docker/pihole/dnsmasq.d/:/etc/dnsmasq.d"
+      - "$HOME/docker/pihole:/etc/pihole"
+
 ########## Frontend ##########
 
 ##### Portainer - Container Management
@@ -56,6 +79,22 @@ services:
    volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     - $HOME/docker/portainer:/config
+
+##### Organizr - Hub for Services
+
+ organizr:
+   container_name: organizr
+   image: organizrtools/organizr-v2:armhf
+   restart: always
+   ports:
+    - 8888:80
+    - 4444:443
+   environment:
+    - TZ=${TZ}
+    - PGID=${PGID}
+    - PUID=${PUID}
+   volumes:
+    - $HOME/docker/organizr:/config
 
 ########## Smart Home Services ##########
 
