@@ -12,6 +12,7 @@ services:
   image: containrrr/watchtower:armhf-latest
   volumes:
    - /var/run/docker.sock:/var/run/docker.sock
+  command: hass homebridge tvheadend --debug --cleanup
 
 ########## Web Server/Reverse Proxy ##########
 
@@ -20,6 +21,8 @@ services:
  nginx:
   container_name: nginx
   image: tobi312/rpi-nginx
+  labels: 
+   - com.centurylinklabs.watchtower.enable= "false"
   restart: always
   ports:
    - 80:80
