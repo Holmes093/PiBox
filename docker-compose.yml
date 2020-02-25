@@ -3,6 +3,16 @@
 version: '3.7'
 services:
 
+########## Container Management ##########
+
+##### Watchtower
+
+ watchtower:
+  container_name: watchtower
+  image: containrrr/watchtower:armhf-latest
+  volumes:
+   - /var/run/docker.sock:/var/run/docker.sock
+
 ########## Web Server/Reverse Proxy ##########
 
 ##### NGINX - Reverse Proxy
@@ -20,6 +30,8 @@ services:
    - PUID=${PUID}
   links:
    - php
+   - hass
+   - tvheadend
   volumes:
    - $HOME/docker/nginx/config:/etc/nginx/conf.d:ro
    - $HOME/docker/nginx/html:/var/www/html
@@ -42,67 +54,13 @@ services:
   volumes:
    - $HOME/docker/nginx/html:/var/www/html
 
-##### PiHole - Ad-Blocker
-
- pihole:
-    container_name: pihole
-    image: pihole/pihole
-    restart: always
-    cap_add:
-     - NET_ADMIN
-    dns:
-     - 127.0.0.1
-     - 8.8.8.8
-    ports:
-      - 53:53/tcp
-      - 53:53/udp
-      - 8484:80/tcp
-    environment:
-      - ServerIP=${HOST_IP}
-      - PGID=${PGID}
-      - PUID=${PUID}
-    volumes:
-      - "$HOME/docker/pihole/dnsmasq.d/:/etc/dnsmasq.d"
-      - "$HOME/docker/pihole:/etc/pihole"
-
-########## Frontend ##########
-
-##### Portainer - Container Management
-
- portainer:
-   container_name: portainer
-   image: portainer/portainer
-   restart: always
-   ports:
-    - 9001:9000
-   command: -H unix:///var/run/docker.sock
-   volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
-    - $HOME/docker/portainer:/config
-
-##### Organizr - Hub for Services
-
- organizr:
-   container_name: organizr
-   image: organizrtools/organizr-v2:armhf
-   restart: always
-   ports:
-    - 8888:80
-    - 4444:443
-   environment:
-    - TZ=${TZ}
-    - PGID=${PGID}
-    - PUID=${PUID}
-   volumes:
-    - $HOME/docker/organizr:/config
-
 ########## Smart Home Services ##########
 
 ##### Home Assistant - Smart Home Control System
 
  hass:
   container_name: hass
-  image: homeassistant/raspberrypi3-homeassistant
+  image: homeassistant/raspberrypi3-homeassistant:latest
   restart: always
   ports:
    - 8123:8123
@@ -128,5 +86,24 @@ services:
    - TZ=${TZ}
    - PGID=${PGID}
    - PUID=${PUID}
+   - HOMEBRIDGE_CONFIG_UI=1
+   - HOMEBRIDGE_CONFIG_UI_PORT=8080
   volumes:
    - $HOME/docker/homebridge:/config
+
+########## LiveTV - DTV & Sports Streams ##########
+
+##### TVHeadend - TV Software
+
+ tvheadend:
+  container_name: tvheadend
+  image: linuxserver/tvheadend:arm32v7-latest
+  restart: always
+  network_mode: "host"
+  environment:
+   - TZ=Europe/London
+   - PGID=${PGID}
+   - PUID=${PUID}
+  volumes:
+   - $HOME/docker/tvheadend:/config
+   - $HOME/docker/tvheadend/picons:/picons
