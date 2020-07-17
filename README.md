@@ -1,9 +1,13 @@
-# PiBox
+<p align="center">
+  <img src="./PiBox.png" width="450" />
+</p>
+<h1 align="center">
+  PiBox
+</h1>
 
-![Image of PiBox](PiBox.png)
-
-# About
+<p align="center">
   PiBox is a Docker-Compose file consiting of all the relevant components to setup your own Smart Home Server.
+</p>
 
 ## Includes
 * Traefik - Reverse Proxy for all services
