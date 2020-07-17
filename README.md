@@ -13,12 +13,15 @@
 * Homebridge - iOS HomeKit API emulator
 * TV Headend - Linux TV Streamer.
 
+Avahi service files to allow mDNS for HomeAssistant & Homebridge containers without the need for "host" mode.
+
 ## Requirements
 * Docker
 * Docker-Compose
 
 ## Instructions 
 * Clone Repo to ~/docker
+* Move avahi service files to /
 * Modify .env file
 * Modify compose file.
 * Change to PiBox directory
