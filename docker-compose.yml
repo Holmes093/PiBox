@@ -141,6 +141,32 @@ services:
    - "traefik.http.routers.caddy-rtr.service=caddy"
    - "traefik.http.services.caddy.loadbalancer.server.port=80"
 
+##### PiHole - Network-wide AdBlock
+
+ pihole:
+  container_name: pihole
+  image: pihole/pihole:latest
+  restart: unless-stopped
+  networks:
+   - proxy
+  ports:
+   - "5052:53/tcp"
+   - "5053:53/udp"
+   - "6767:67/udp"
+   - "9000:80/tcp"
+   - "4433:443/tcp"
+  environment:
+   - TZ=${TZ}
+   - PGID=${PGID}
+   - PUID=${PUID}
+   - WEBPASSWORD=${PIPASS}
+  volumes:
+   - "$DOCKER/pihole/etc-pihole/:/etc/pihole/"
+   - "$DOCKER/pihole/etc-dnsmasq.d/:/etc/dnsmasq.d/"
+  dns:
+   - 127.0.0.1
+   - 1.1.1.1
+
 ########## Smart Home Services ##########
 
 ##### Home Assistant - Smart Home Control System
