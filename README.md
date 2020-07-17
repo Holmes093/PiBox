@@ -1,5 +1,6 @@
 # PiBox
 
+![Image of PiBox](PiBox.png)
 
 # About
   PiBox is a Docker-Compose file consiting of all the relevant components to setup your own Smart Home Server.
