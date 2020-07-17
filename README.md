@@ -12,7 +12,6 @@
 ## Includes
 * Traefik - Reverse Proxy for all services
 * Caddy - Webserver for hosting Element files
-* PiHole - Network-wide AdBlock Service
 * Watchtower - Pull Container images autoamtically
 * Portainer - Container management UI
 * HomeAssistant - Open source home automation suite
