@@ -1,6 +1,18 @@
 ############### Complete Home Control Compose ###############
 
 version: '3.7'
+
+#################### Networks
+
+networks:
+  proxy:
+    external:
+      name: proxy
+  default:
+    driver: bridge
+
+#################### Services 
+
 services:
 
 ########## Container Management ##########
@@ -10,52 +22,124 @@ services:
  watchtower:
   container_name: watchtower
   image: containrrr/watchtower:armhf-latest
+  restart: unless-stopped
+  networks:
+   - proxy
   volumes:
    - /var/run/docker.sock:/var/run/docker.sock
   command: hass homebridge tvheadend --debug --cleanup
 
 ########## Web Server/Reverse Proxy ##########
 
-##### NGINX - Reverse Proxy
+##### Traefik - Reverse Proxy
 
- nginx:
-  container_name: nginx
-  image: tobi312/rpi-nginx
-  labels: 
-   - com.centurylinklabs.watchtower.enable= "false"
-  restart: always
+ traefik:
+    container_name: traefik
+    image: traefik:latest
+    restart: unless-stopped
+    command: # CLI arguments
+      - --global.checkNewVersion=true
+      - --global.sendAnonymousUsage=true
+      - --entryPoints.http.address=:80
+      - --entryPoints.https.address=:443
+      # Allow these IPs to set the X-Forwarded-* headers - Cloudflare IPs: https://www.cloudflare.com/ips/
+      #- --entrypoints.https.forwardedHeaders.trustedIPs=173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.96.0/20,197.234.240.0/22,198.41.128.0/17,162.158.0.0/15,104.16.0.0/12,172.64.0.0/13,131.0.72.0/22
+      - --entryPoints.traefik.address=:8080
+      - --api=true
+      #- --api.insecure=true
+      #- --serversTransport.insecureSkipVerify=true
+      - --log=true
+      - --log.level=DEBUG # (Default: error) DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+      - --accessLog=true
+      - --accessLog.filePath=/traefik.log
+      - --accessLog.bufferingSize=100 # Configuring a buffer of 100 lines
+      - --accessLog.filters.statusCodes=400-499
+      - --providers.docker=true
+      - --providers.docker.endpoint=unix:///var/run/docker.sock
+      - --providers.docker.defaultrule=Host(`{{ index .Labels "com.docker.compose.service" }}.$DOMAINNAME`)
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.network=proxy
+      - --providers.docker.swarmMode=false
+      - --providers.file.directory=/rules # Load dynamic configuration from one or more .toml or .yml files in a directory.
+      #- --providers.file.filename=/path/to/file # Load dynamic configuration from a file.
+      - --providers.file.watch=true # Only works on top level files in the rules folder
+      #- --certificatesResolvers.dns-cloudflare.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+      - --certificatesResolvers.dns-cloudflare.acme.email=$CLOUDFLARE_EMAIL
+      - --certificatesResolvers.dns-cloudflare.acme.storage=/acme.json
+      - --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare
+    networks:
+      proxy:
+        ipv4_address: 192.168.0.254
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - $DOCKER/traefik/acme/acme.json:/acme.json 
+      - $DOCKER/traefik/traefik.log:/traefik.log
+      - $DOCKER/traefik/rules:/rules 
+      - $DOCKER/shared:/shared
+    environment:
+      - CF_API_EMAIL=$CLOUDFLARE_EMAIL
+      - CF_API_KEY=$CLOUDFLARE_API_KEY
+    labels:
+      - "traefik.enable=true"
+    # HTTP-to-HTTPS Redirect
+      - "traefik.http.routers.http-catchall.entrypoints=http"
+      - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)"
+      - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+    # HTTP Routers
+      - "traefik.http.routers.traefik-rtr.entrypoints=https"
+      - "traefik.http.routers.traefik-rtr.rule=Host(`monitor.$DOMAINNAME`)"
+      - "traefik.http.routers.traefik-rtr.tls=true"
+     #- "traefik.http.routers.traefik-rtr.tls.certresolver=dns-cloudflare" # Comment out this line after first run of traefik to force the use of wildcard certs
+      - "traefik.http.routers.traefik-rtr.tls.domains[0].main=$DOMAINNAME"
+      - "traefik.http.routers.traefik-rtr.tls.domains[0].sans=*.$DOMAINNAME"
+     #- "traefik.http.routers.traefik-rtr.tls.domains[1].main=$SECONDDOMAINNAME" # Pulls main cert for second domain
+     #- "traefik.http.routers.traefik-rtr.tls.domains[1].sans=*.$SECONDDOMAINNAME" # Pulls wildcard cert for second domain
+    # Services - API
+      - "traefik.http.routers.traefik-rtr.service=api@internal"
+    ## Middelwares
+      - "traefik.http.routers.traefik-rtr.middlewares=middlewares-basic-auth@file" 
+
+##### Caddy - Static File Hosting
+
+ caddy:
+  container_name: caddy
+  image: caddy:latest
+  restart: unless-stopped
+  networks:
+   - proxy
   ports:
-   - 80:80
-   - 443:443
+   - 8000:80
   environment:
    - TZ=${TZ}
    - PGID=${PGID}
    - PUID=${PUID}
-  links:
-   - php
-   - hass
-   - tvheadend
   volumes:
-   - $HOME/docker/nginx/config:/etc/nginx/conf.d:ro
-   - $HOME/docker/nginx/html:/var/www/html
-   - /etc/letsencrypt:/etc/letsencrypt
-
-##### PHP - PHP Service
-
- php:
-  container_name: php
-  image: tobi312/rpi-php
-  restart: always
-  ports:
-   - 9000:9000
-  environment:
-   - TZ=${TZ}
-   - PGID=${PGID}
-   - PUID=${PUID}
-   - PHP_ERRORS=1
-   - PHP_UPLOAD_MAX_FILESIZE=250
-  volumes:
-   - $HOME/docker/nginx/html:/var/www/html
+   - $DOCKER/caddy/.well-known/matrix:/usr/share/caddy/.well-known/matrix
+  labels:
+   - "traefik.enable=true"
+   ## HTTP Routers
+   - "traefik.http.routers.caddy-rtr.entrypoints=https"
+   - "traefik.http.routers.caddy-rtr.rule=Host(`$DOMAINNAME`) && PathPrefix(`/.well-known/matrix`)"
+   - "traefik.http.routers.caddy-rtr.tls=true"
+   ## HTTP Services
+   - "traefik.http.routers.caddy-rtr.service=caddy"
+   - "traefik.http.services.caddy.loadbalancer.server.port=80"
 
 ########## Smart Home Services ##########
 
@@ -64,11 +148,13 @@ services:
  hass:
   container_name: hass
   image: homeassistant/raspberrypi3-homeassistant:latest
-  restart: always
+  restart: unless-stopped
+  networks:
+   - proxy
   ports:
    - 8123:8123
-  network_mode: host
-  privileged: true
+   - 5353:5353
+   - 51827:51827
   environment:
    - TZ=${TZ}
    - PGID=${PGID}
@@ -76,15 +162,28 @@ services:
   devices:
    - "/dev/ttyUSB0:/dev/ttyUSB0"
   volumes:
-   - $HOME/docker/hass:/config
+   - $DOCKER/hass:/config
+  labels:
+   - "traefik.enable=true"
+   ## HTTP Routers
+   - "traefik.http.routers.hass-rtr.entrypoints=https"
+   - "traefik.http.routers.hass-rtr.rule=Host(`home.$DOMAINNAME`)"
+   - "traefik.http.routers.hass-rtr.tls=true"
+   ## HTTP Services
+   - "traefik.http.routers.hass-rtr.service=hass"
+   - "traefik.http.services.hass.loadbalancer.server.port=8123"
 
 ##### Homebridge - Homekit Bridge
 
  homebridge:
   container_name: homebridge
   image: oznu/homebridge:raspberry-pi
-  restart: always
-  network_mode: host
+  restart: unless-stopped
+  networks:
+   - proxy
+  ports:
+   - 8081:8080
+   - 51826:51826
   environment:
    - TZ=${TZ}
    - PGID=${PGID}
@@ -92,9 +191,9 @@ services:
    - HOMEBRIDGE_CONFIG_UI=1
    - HOMEBRIDGE_CONFIG_UI_PORT=8080
   volumes:
-   - $HOME/docker/homebridge:/config
+   - $DOCKER/homebridge:/homebridge
 
-########## LiveTV - DTV & Sports Streams ##########
+########## LiveTV - DTV  ##########
 
 ##### TVHeadend - TV Software
 
@@ -108,5 +207,5 @@ services:
    - PGID=${PGID}
    - PUID=${PUID}
   volumes:
-   - $HOME/docker/tvheadend:/config
-   - $HOME/docker/tvheadend/picons:/picons
+   - $DOCKER/tvheadend:/config
+   - $DOCKER/tvheadend/picons:/picons
