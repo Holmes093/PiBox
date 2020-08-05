@@ -21,7 +21,7 @@ services:
 
  watchtower:
   container_name: watchtower
-  image: containrrr/watchtower:armhf-latest
+  image: containrrr/watchtower:latest
   restart: unless-stopped
   networks:
    - proxy
@@ -123,6 +123,8 @@ services:
   restart: unless-stopped
   networks:
    - proxy
+  security_opt:
+   - no-new-privileges:true
   ports:
    - 8000:80
   environment:
@@ -147,7 +149,7 @@ services:
 
  hass:
   container_name: hass
-  image: homeassistant/raspberrypi3-homeassistant:latest
+  image: homeassistant/home-assistant:latest
   restart: unless-stopped
   networks:
    - proxy
@@ -177,10 +179,12 @@ services:
 
  homebridge:
   container_name: homebridge
-  image: oznu/homebridge:raspberry-pi
+  image: oznu/homebridge:latest
   restart: unless-stopped
   networks:
    - proxy
+  security_opt:
+   - no-new-privileges:true
   ports:
    - 8081:8080
    - 51826:51826
@@ -197,9 +201,9 @@ services:
 
 ##### TVHeadend - TV Software
 
- tvheadend:
-  container_name: tvheadend
-  image: linuxserver/tvheadend:arm32v7-latest
+ tvh:
+  container_name: tvh
+  image: linuxserver/tvheadend:arm64v8-latest
   restart: always
   network_mode: "host"
   environment:
@@ -209,3 +213,12 @@ services:
   volumes:
    - $DOCKER/tvheadend:/config
    - $DOCKER/tvheadend/picons:/picons
+  labels:
+   - "traefik.enable=true"
+   ## HTTP Routers
+   - "traefik.http.routers.tvh-rtr.entrypoints=https"
+   - "traefik.http.routers.tvh-rtr.rule=Host(`tv.$DOMAINNAME`)"
+   - "traefik.http.routers.tvh-rtr.tls=true"
+   ## HTTP Services
+   - "traefik.http.routers.tvh-rtr.service=tvh"
+   - "traefik.http.services.tvh.loadbalancer.server.port=9981"
